@@ -2,19 +2,27 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>TEST GRIST</title>
+<title>Budget Tetris</title>
 <style>
-  body { background:#111; color:#fff; font-family:sans-serif; padding:20px; }
-  pre { background:#222; padding:20px; border-radius:8px; }
+  body { background:#111; color:#fff; font-family:sans-serif; text-align:center; }
+  canvas { background:#222; margin-top:20px; }
+  button { margin-top:15px; padding:10px 20px; font-size:16px; }
 </style>
 </head>
 <body>
 
-<h2>TEST — Lecture Grist</h2>
+<h2>Budget Tetris</h2>
 
-<p>Si Grist fonctionne, les données apparaîtront ci‑dessous :</p>
+<canvas id="game"></canvas>
 
-<pre id="output">En attente de données…</pre>
+<button id="playMusic">🎵 Play musique</button>
+
+<audio id="tetrisMusic" loop>
+  <source src="musique.mp3" type="audio/mpeg">
+</audio>
+
+<!-- 🔥 LIGNE CRITIQUE : API GRIST -->
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 
 <script src="tetris.js"></script>
 
