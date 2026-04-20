@@ -47,9 +47,15 @@ btn.onclick = () => {
 // =====================
 // LECTURE DES DONNÉES GRIST
 // =====================
-window.grist.ready();
+
+// 🔥 CORRECTION CRITIQUE : demander l'accès complet
+window.grist.ready({
+  requiredAccess: 'full'
+});
 
 window.grist.onRecords((records) => {
+
+  console.log("RECORDS REÇUS :", records); // debug
 
   // 1. Nombre de programmes = nombre de colonnes
   COLS = records.length;
