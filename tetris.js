@@ -48,14 +48,21 @@ btn.onclick = () => {
 // LECTURE DES DONNÉES GRIST
 // =====================
 
-// 🔥 CORRECTION CRITIQUE : demander l'accès complet
+// 🔥 CORRECTION CRITIQUE : déclarer les colonnes attendues
 window.grist.ready({
-  requiredAccess: 'full'
+  requiredAccess: 'full',
+  columns: ["B", "F", "G", "H"]
 });
 
-window.grist.onRecords((records) => {
+// 🔥 CORRECTION CRITIQUE : signature correcte
+window.grist.onRecords((records, mappings) => {
 
   console.log("RECORDS REÇUS :", records); // debug
+
+  if (!records || records.length === 0) {
+    console.warn("Aucune donnée reçue de Grist.");
+    return;
+  }
 
   // 1. Nombre de programmes = nombre de colonnes
   COLS = records.length;
