@@ -2,12 +2,10 @@
 // CONFIG
 // =====================
 
-// Couleurs fixes
-const COLOR_BUDGET = "#007bff";   // bleu
-const COLOR_CONSO  = "#ff0033";   // rouge
-const COLOR_NONCONSO = "#00cc44"; // vert
+const COLOR_BUDGET = "#007bff";
+const COLOR_CONSO  = "#ff0033";
+const COLOR_NONCONSO = "#00cc44";
 
-// Taille d'un bloc
 const SIZE = 20;
 
 // =====================
@@ -17,16 +15,13 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
 // =====================
-// GRILLE (sera définie après lecture Grist)
+// GRILLE
 // =====================
 let COLS = 0;
 let ROWS = 25;
 let grid = [];
-
-// =====================
-// PIÈCES
-// =====================
-let pieces = [];   // toutes les pièces à faire tomber
+let pieces = [];
+let gameStarted = false;
 
 // =====================
 // MUSIQUE
@@ -45,52 +40,42 @@ btn.onclick = () => {
 };
 
 // =====================
-// LECTURE DES DONNÉES GRIST
+// GRIST
 // =====================
+window.grist.ready({ requiredAccess: 'full' });
 
-// 🔥 CORRECTION CRITIQUE : déclarer les colonnes attendues
-window.grist.ready({
-  requiredAccess: 'full',
-  columns: ["B", "F", "G", "H"]
-});
+window.grist.onRecords((records) => {
 
-// 🔥 CORRECTION CRITIQUE : signature correcte
-window.grist.onRecords((records, mappings) => {
-
-  console.log("RECORDS REÇUS :", records); // debug
+  console.log("RECORDS REÇUS :", records);
 
   if (!records || records.length === 0) {
-    console.warn("Aucune donnée reçue de Grist.");
+    console.warn("Aucune donnée reçue.");
     return;
   }
 
-  // 1. Nombre de programmes = nombre de colonnes
+  // Définir la largeur de la grille
   COLS = records.length;
+
+  // 🔥 Redimensionner le canvas AVANT de dessiner
   canvas.width = COLS * SIZE;
   canvas.height = ROWS * SIZE;
 
-  // 2. Grille vide
+  // Grille vide
   grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
-
-  // 3. Génération des pièces
   pieces = [];
 
+  // Génération des pièces
   records.forEach((rec, indexCol) => {
 
-    const programme = rec.B;
     const budgetAE = rec.F;
     const consoAE  = rec.G;
     const nonConso = rec.H;
 
-    // Taille des pièces proportionnelle au montant
-    const scale = 1 + Math.log10(Math.max(1, budgetAE));
-
-    // 3 pièces par programme
     pieces.push({
       x: indexCol,
       y: 0,
       color: COLOR_BUDGET,
-      height: Math.ceil(scale)
+      height: Math.ceil(1 + Math.log10(Math.max(1, budgetAE)))
     });
 
     pieces.push({
@@ -109,6 +94,11 @@ window.grist.onRecords((records, mappings) => {
 
   });
 
+  // 🔥 Lancer le jeu SEULEMENT après réception des données
+  if (!gameStarted) {
+    gameStarted = true;
+    setInterval(update, 300);
+  }
 });
 
 // =====================
@@ -127,7 +117,7 @@ function draw() {
     }
   }
 
-  // pièces en chute
+  // pièces
   pieces.forEach(p => {
     ctx.fillStyle = p.color;
     for (let i = 0; i < p.height; i++) {
@@ -140,22 +130,23 @@ function draw() {
 // CHUTE
 // =====================
 function update() {
+
+  if (!pieces.length) return;
+
   pieces.forEach(p => {
-    // collision sol
+
     if (p.y + p.height >= ROWS) {
       lockPiece(p);
-      p.y = -999; // retirée
+      p.y = -999;
       return;
     }
 
-    // collision autre pièce
     if (grid[p.y + p.height][p.x]) {
       lockPiece(p);
       p.y = -999;
       return;
     }
 
-    // sinon chute
     p.y++;
   });
 
@@ -167,5 +158,3 @@ function lockPiece(p) {
     grid[p.y + i][p.x] = p.color;
   }
 }
-
-setInterval(update, 300);
