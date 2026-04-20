@@ -1,9 +1,16 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-const COLS = 10;
+const COLS = 14;     // grille plus large
 const ROWS = 20;
-const SIZE = 20;
+const SIZE = 24;     // blocs plus grands
+
+canvas.width = COLS * SIZE;
+canvas.height = ROWS * SIZE;
+
+// Colonnes de spawn (3 colonnes seulement)
+const SPAWN_MIN = 4;
+const SPAWN_MAX = 6;
 
 // Couleurs Tetris
 const COLORS = {
@@ -40,7 +47,7 @@ function newPiece() {
   piece = {
     shape: SHAPES[type].map(r => [...r]),
     color: COLORS[type],
-    x: 3,
+    x: Math.floor(Math.random() * (SPAWN_MAX - SPAWN_MIN + 1)) + SPAWN_MIN,
     y: 0
   };
 }
@@ -114,3 +121,17 @@ function update() {
 }
 
 setInterval(update, 400);
+
+// Musique Play/Pause
+const music = document.getElementById("tetrisMusic");
+const btn = document.getElementById("playMusic");
+
+btn.onclick = () => {
+  if (music.paused) {
+    music.play();
+    btn.textContent = "⏸️ Pause musique";
+  } else {
+    music.pause();
+    btn.textContent = "🎵 Play musique";
+  }
+};
