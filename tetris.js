@@ -1,160 +1,28 @@
 // =====================
-// CONFIG
+// DIAGNOSTIC GRIST
 // =====================
 
-const COLOR_BUDGET = "#007bff";
-const COLOR_CONSO  = "#ff0033";
-const COLOR_NONCONSO = "#00cc44";
+const output = document.getElementById("output");
 
-const SIZE = 20;
+// 1. Le widget demande l'accès complet
+window.grist.ready({
+  requiredAccess: 'full'
+});
 
-// =====================
-// CANVAS
-// =====================
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+// 2. Log pour vérifier que le script est chargé
+console.log("tetris.js chargé");
 
-// =====================
-// GRILLE
-// =====================
-let COLS = 0;
-let ROWS = 25;
-let grid = [];
-let pieces = [];
-let gameStarted = false;
+// 3. Callback Grist
+window.grist.onRecords((records, mappings) => {
 
-// =====================
-// MUSIQUE
-// =====================
-const music = document.getElementById("tetrisMusic");
-const btn = document.getElementById("playMusic");
-
-btn.onclick = () => {
-  if (music.paused) {
-    music.play();
-    btn.textContent = "⏸️ Pause musique";
-  } else {
-    music.pause();
-    btn.textContent = "🎵 Play musique";
-  }
-};
-
-// =====================
-// GRIST
-// =====================
-window.grist.ready({ requiredAccess: 'full' });
-
-window.grist.onRecords((records) => {
-
-  console.log("RECORDS REÇUS :", records);
+  console.log("onRecords déclenché");
+  console.log("records =", records);
 
   if (!records || records.length === 0) {
-    console.warn("Aucune donnée reçue.");
+    output.textContent = "Aucune donnée reçue depuis Grist.";
     return;
   }
 
-  // Définir la largeur de la grille
-  COLS = records.length;
-
-  // 🔥 Redimensionner le canvas AVANT de dessiner
-  canvas.width = COLS * SIZE;
-  canvas.height = ROWS * SIZE;
-
-  // Grille vide
-  grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
-  pieces = [];
-
-  // Génération des pièces
-  records.forEach((rec, indexCol) => {
-
-    const budgetAE = rec.F;
-    const consoAE  = rec.G;
-    const nonConso = rec.H;
-
-    pieces.push({
-      x: indexCol,
-      y: 0,
-      color: COLOR_BUDGET,
-      height: Math.ceil(1 + Math.log10(Math.max(1, budgetAE)))
-    });
-
-    pieces.push({
-      x: indexCol,
-      y: 0,
-      color: COLOR_CONSO,
-      height: Math.ceil(Math.log10(Math.max(1, consoAE)))
-    });
-
-    pieces.push({
-      x: indexCol,
-      y: 0,
-      color: COLOR_NONCONSO,
-      height: Math.ceil(Math.log10(Math.max(1, nonConso)))
-    });
-
-  });
-
-  // 🔥 Lancer le jeu SEULEMENT après réception des données
-  if (!gameStarted) {
-    gameStarted = true;
-    setInterval(update, 300);
-  }
+  // Affichage lisible
+  output.textContent = JSON.stringify(records, null, 2);
 });
-
-// =====================
-// DESSIN
-// =====================
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // grille
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      if (grid[r][c]) {
-        ctx.fillStyle = grid[r][c];
-        ctx.fillRect(c * SIZE, r * SIZE, SIZE, SIZE);
-      }
-    }
-  }
-
-  // pièces
-  pieces.forEach(p => {
-    ctx.fillStyle = p.color;
-    for (let i = 0; i < p.height; i++) {
-      ctx.fillRect(p.x * SIZE, (p.y + i) * SIZE, SIZE, SIZE);
-    }
-  });
-}
-
-// =====================
-// CHUTE
-// =====================
-function update() {
-
-  if (!pieces.length) return;
-
-  pieces.forEach(p => {
-
-    if (p.y + p.height >= ROWS) {
-      lockPiece(p);
-      p.y = -999;
-      return;
-    }
-
-    if (grid[p.y + p.height][p.x]) {
-      lockPiece(p);
-      p.y = -999;
-      return;
-    }
-
-    p.y++;
-  });
-
-  draw();
-}
-
-function lockPiece(p) {
-  for (let i = 0; i < p.height; i++) {
-    grid[p.y + i][p.x] = p.color;
-  }
-}
