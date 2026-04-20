@@ -1,16 +1,13 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-const COLS = 14;     // grille plus large
+// Grille élargie
+const COLS = 14;
 const ROWS = 20;
-const SIZE = 24;     // blocs plus grands
+const SIZE = 24;
 
 canvas.width = COLS * SIZE;
 canvas.height = ROWS * SIZE;
-
-// Colonnes de spawn (3 colonnes seulement)
-const SPAWN_MIN = 4;
-const SPAWN_MAX = 6;
 
 // Couleurs Tetris
 const COLORS = {
@@ -39,15 +36,22 @@ let grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
 
 let piece = null;
 
-// Nouvelle pièce
+// Nouvelle pièce avec spawn aléatoire sur toute la largeur
 function newPiece() {
   const types = Object.keys(SHAPES);
   const type = types[Math.floor(Math.random() * types.length)];
 
+  const shape = SHAPES[type].map(r => [...r]);
+  const pieceWidth = shape[0].length;
+
+  // Position X aléatoire valide
+  const maxX = COLS - pieceWidth;
+  const spawnX = Math.floor(Math.random() * (maxX + 1));
+
   piece = {
-    shape: SHAPES[type].map(r => [...r]),
+    shape: shape,
     color: COLORS[type],
-    x: Math.floor(Math.random() * (SPAWN_MAX - SPAWN_MIN + 1)) + SPAWN_MIN,
+    x: spawnX,
     y: 0
   };
 }
