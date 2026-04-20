@@ -5,7 +5,7 @@ const COLS = 10;
 const ROWS = 20;
 const SIZE = 20;
 
-// Couleurs Tetris (tu pourras les mapper à tes budgets)
+// Couleurs Tetris
 const COLORS = {
   I: "#00f0f0",
   J: "#0000f0",
@@ -30,22 +30,49 @@ const SHAPES = {
 // Grille vide
 let grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
 
-// Pièce courante
 let piece = null;
 
-// Génère une nouvelle pièce
+// Nouvelle pièce
 function newPiece() {
   const types = Object.keys(SHAPES);
   const type = types[Math.floor(Math.random() * types.length)];
+
   piece = {
-    shape: SHAPES[type],
+    shape: SHAPES[type].map(r => [...r]),
     color: COLORS[type],
     x: 3,
     y: 0
   };
 }
 
-// Dessine la grille + la pièce
+// Collision
+function collision(px, py, shape) {
+  for (let r = 0; r < shape.length; r++) {
+    for (let c = 0; c < shape[r].length; c++) {
+      if (shape[r][c]) {
+        let x = px + c;
+        let y = py + r;
+        if (x < 0 || x >= COLS || y >= ROWS || (y >= 0 && grid[y][x])) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// Fixe la pièce
+function lockPiece() {
+  piece.shape.forEach((row, r) => {
+    row.forEach((val, c) => {
+      if (val) {
+        grid[piece.y + r][piece.x + c] = piece.color;
+      }
+    });
+  });
+}
+
+// Dessin
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -72,34 +99,7 @@ function draw() {
   }
 }
 
-// Vérifie collision
-function collision(px, py, shape) {
-  for (let r = 0; r < shape.length; r++) {
-    for (let c = 0; c < shape[r].length; c++) {
-      if (shape[r][c]) {
-        let x = px + c;
-        let y = py + r;
-        if (x < 0 || x >= COLS || y >= ROWS || (y >= 0 && grid[y][x])) {
-          return true;
-        }
-      }
-    }
-  }
-  return false;
-}
-
-// Fixe la pièce dans la grille
-function lockPiece() {
-  piece.shape.forEach((row, r) => {
-    row.forEach((val, c) => {
-      if (val) {
-        grid[piece.y + r][piece.x + c] = piece.color;
-      }
-    });
-  });
-}
-
-// Boucle de jeu
+// Boucle
 function update() {
   if (!piece) newPiece();
 
@@ -114,8 +114,3 @@ function update() {
 }
 
 setInterval(update, 400);
-
-// Musique
-document.getElementById("playMusic").onclick = () => {
-  document.getElementById("tetrisMusic").play();
-};
