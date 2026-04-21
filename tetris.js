@@ -6,7 +6,7 @@ console.log("tetris.js chargé");
 
 const COLOR_BUDGET   = "#007bff"; // bleu
 const COLOR_CONSO    = "#ff0033"; // rouge
-const COLOR_NONCONSO = "#00cc44"; // vert;
+const COLOR_NONCONSO = "#00cc44"; // vert
 
 const SIZE = 20;
 
@@ -62,15 +62,10 @@ window.grist.onRecords((records) => {
     return;
   }
 
-  // ⚠️ ADAPTER ICI LES NOMS DE CHAMPS EXACTS DE GRIST ⚠️
-  // Regarde dans la console une ligne de records[0] pour confirmer :
-  // ex: console.log(Object.keys(records[0]));
-  const FIELD_BUDGET   = "Budget_AE_N";     // ou "Budget AE N" ou autre
-  const FIELD_CONSO    = "Conso_AE_N";      // idem
-  const FIELD_NONCONSO = "Non_Conso_AE_N";  // idem
-
-  // Vérif rapide sur la première ligne
-  console.log("Clés d'une ligne :", Object.keys(records[0]));
+  // Champs EXACTS de ta table Grist
+  const FIELD_BUDGET   = "Budget_AE_N";
+  const FIELD_CONSO    = "Conso_AE_N";
+  const FIELD_NONCONSO = "Non_Conso_AE_N";
 
   COLS = records.length;
   canvas.width  = COLS * SIZE;
@@ -132,7 +127,7 @@ function draw() {
 
   // pièces en chute
   pieces.forEach(p => {
-    if (p.y < 0) return; // pièce déjà "retirée"
+    if (p.y < 0) return;
     ctx.fillStyle = p.color;
     for (let i = 0; i < p.height; i++) {
       const yy = p.y + i;
@@ -150,23 +145,20 @@ function update() {
   if (!pieces.length) return;
 
   pieces.forEach(p => {
-    if (p.y < 0) return; // déjà verrouillée et retirée
+    if (p.y < 0) return;
 
-    // collision sol
     if (p.y + p.height >= ROWS) {
       lockPiece(p);
       p.y = -999;
       return;
     }
 
-    // collision autre pièce
     if (grid[p.y + p.height][p.x]) {
       lockPiece(p);
       p.y = -999;
       return;
     }
 
-    // sinon chute
     p.y++;
   });
 
