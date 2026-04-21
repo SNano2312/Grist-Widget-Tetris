@@ -4,9 +4,9 @@ console.log("tetris.js chargé");
 // CONFIG
 // =====================
 
-const COLOR_BUDGET = "#007bff";
-const COLOR_CONSO  = "#ff0033";
-const COLOR_NONCONSO = "#00cc44";
+const COLOR_BUDGET = "#007bff";   // bleu
+const COLOR_CONSO  = "#ff0033";   // rouge
+const COLOR_NONCONSO = "#00cc44"; // vert
 
 const SIZE = 20;
 
@@ -42,6 +42,15 @@ btn.onclick = () => {
 };
 
 // =====================
+// FONCTION DE NORMALISATION DES HAUTEURS
+// =====================
+
+function scaleHeight(value) {
+  if (!value || value <= 0) return 2;   // minimum visible
+  return Math.max(2, Math.ceil(Math.log10(value) * 3));
+}
+
+// =====================
 // GRIST
 // =====================
 
@@ -61,42 +70,46 @@ window.grist.onRecords((records, mappings) => {
     return;
   }
 
+  // Nombre de colonnes = nombre de programmes
   COLS = records.length;
+
+  // Redimensionner le canvas
   canvas.width = COLS * SIZE;
   canvas.height = ROWS * SIZE;
 
+  // Réinitialiser la grille
   grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
   pieces = [];
 
+  // Génération des pièces
   records.forEach((rec, indexCol) => {
 
-    const budgetAE = rec.F;
-    const consoAE  = rec.G;
-    const nonConso = rec.H;
+    console.log("Programme", rec.B, "F=", rec.F, "G=", rec.G, "H=", rec.H);
 
     pieces.push({
       x: indexCol,
       y: 0,
       color: COLOR_BUDGET,
-      height: Math.ceil(1 + Math.log10(Math.max(1, budgetAE)))
+      height: scaleHeight(rec.F)
     });
 
     pieces.push({
       x: indexCol,
       y: 0,
       color: COLOR_CONSO,
-      height: Math.ceil(Math.log10(Math.max(1, consoAE)))
+      height: scaleHeight(rec.G)
     });
 
     pieces.push({
       x: indexCol,
       y: 0,
       color: COLOR_NONCONSO,
-      height: Math.ceil(Math.log10(Math.max(1, nonConso)))
+      height: scaleHeight(rec.H)
     });
 
   });
 
+  // Lancer le jeu une seule fois
   if (!gameStarted) {
     gameStarted = true;
     setInterval(update, 300);
@@ -109,6 +122,7 @@ window.grist.onRecords((records, mappings) => {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // grille
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       if (grid[r][c]) {
@@ -118,6 +132,7 @@ function draw() {
     }
   }
 
+  // pièces en chute
   pieces.forEach(p => {
     ctx.fillStyle = p.color;
     for (let i = 0; i < p.height; i++) {
@@ -135,18 +150,21 @@ function update() {
 
   pieces.forEach(p => {
 
+    // collision sol
     if (p.y + p.height >= ROWS) {
       lockPiece(p);
       p.y = -999;
       return;
     }
 
+    // collision autre pièce
     if (grid[p.y + p.height][p.x]) {
       lockPiece(p);
       p.y = -999;
       return;
     }
 
+    // sinon chute
     p.y++;
   });
 
