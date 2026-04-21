@@ -4,11 +4,18 @@ console.log("tetris.js chargé");
 // CONFIG
 // =====================
 
+const SIZE = 20;
+const ROWS = 25;
+
 const COLOR_BUDGET   = "#007bff"; // bleu
 const COLOR_CONSO    = "#ff0033"; // rouge
 const COLOR_NONCONSO = "#00cc44"; // vert
 
-const SIZE = 20;
+// Champs EXACTS de ta table Grist
+const FIELD_BUDGET   = "Budget_AE_N";
+const FIELD_CONSO    = "Conso_AE_N";
+const FIELD_NONCONSO = "Non_Conso_AE_N";
+const FIELD_PROG     = "Programme_de_financement";
 
 // =====================
 // CANVAS
@@ -17,12 +24,12 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
 // =====================
-// GRILLE
+// GRILLE / PIECES
 // =====================
 let COLS = 0;
-let ROWS = 25;
 let grid = [];
 let pieces = [];
+let labels = [];
 let gameStarted = false;
 
 // =====================
@@ -42,16 +49,62 @@ btn.onclick = () => {
 };
 
 // =====================
-// NORMALISATION HAUTEUR
+// FORMES DE PIECES
 // =====================
+// Chaque forme est un tableau de [dx, dy] en cases
+const SHAPE_I = [ [0,0], [0,1], [0,2], [0,3] ];
+const SHAPE_L = [ [0,0], [0,1], [0,2], [1,2] ];
+const SHAPE_T = [ [0,0], [1,0], [2,0], [1,1] ];
+
+// =====================
+// UTILITAIRES
+// =====================
+
 function scaleHeight(value) {
   if (!value || isNaN(value) || value <= 0) return 2;
-  return Math.max(2, Math.ceil(Math.log10(value) * 3));
+  return Math.max(2, Math.ceil(Math.log10(value) * 2));
+}
+
+// Crée les pièces pour une ligne (colonne) donnée
+function makePiecesFromRow(row, colIndex) {
+  const budget   = Number(row[FIELD_BUDGET]   ?? 0);
+  const conso    = Number(row[FIELD_CONSO]    ?? 0);
+  const nonconso = Number(row[FIELD_NONCONSO] ?? 0);
+
+  const hB = scaleHeight(budget);
+  const hC = scaleHeight(conso);
+  const hN = scaleHeight(nonconso);
+
+  // On “étire” verticalement les formes en fonction des valeurs
+  pieces.push({
+    x: colIndex,
+    y: 0,
+    color: COLOR_BUDGET,
+    shape: SHAPE_I,
+    height: hB
+  });
+
+  pieces.push({
+    x: colIndex,
+    y: 0,
+    color: COLOR_CONSO,
+    shape: SHAPE_L,
+    height: hC
+  });
+
+  pieces.push({
+    x: colIndex,
+    y: 0,
+    color: COLOR_NONCONSO,
+    shape: SHAPE_T,
+    height: hN
+  });
 }
 
 // =====================
 // GRIST
 // =====================
+
 window.grist.ready({ requiredAccess: "full" });
 
 window.grist.onRecords((records) => {
@@ -62,45 +115,17 @@ window.grist.onRecords((records) => {
     return;
   }
 
-  // Champs EXACTS de ta table Grist
-  const FIELD_BUDGET   = "Budget_AE_N";
-  const FIELD_CONSO    = "Conso_AE_N";
-  const FIELD_NONCONSO = "Non_Conso_AE_N";
-
   COLS = records.length;
   canvas.width  = COLS * SIZE;
-  canvas.height = ROWS * SIZE;
+  canvas.height = ROWS * SIZE + 40; // un peu de place pour les labels
 
   grid   = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
   pieces = [];
+  labels = [];
 
   records.forEach((row, colIndex) => {
-    const budget   = Number(row[FIELD_BUDGET]   ?? 0);
-    const conso    = Number(row[FIELD_CONSO]    ?? 0);
-    const nonconso = Number(row[FIELD_NONCONSO] ?? 0);
-
-    console.log(`Col ${colIndex} → budget=${budget}, conso=${conso}, nonconso=${nonconso}`);
-
-    pieces.push({
-      x: colIndex,
-      y: 0,
-      color: COLOR_BUDGET,
-      height: scaleHeight(budget)
-    });
-
-    pieces.push({
-      x: colIndex,
-      y: 0,
-      color: COLOR_CONSO,
-      height: scaleHeight(conso)
-    });
-
-    pieces.push({
-      x: colIndex,
-      y: 0,
-      color: COLOR_NONCONSO,
-      height: scaleHeight(nonconso)
-    });
+    makePiecesFromRow(row, colIndex);
+    labels[colIndex] = String(row[FIELD_PROG] ?? "");
   });
 
   if (!gameStarted) {
@@ -112,6 +137,7 @@ window.grist.onRecords((records) => {
 // =====================
 // DESSIN
 // =====================
+
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -129,31 +155,60 @@ function draw() {
   pieces.forEach(p => {
     if (p.y < 0) return;
     ctx.fillStyle = p.color;
-    for (let i = 0; i < p.height; i++) {
-      const yy = p.y + i;
-      if (yy >= 0 && yy < ROWS) {
-        ctx.fillRect(p.x * SIZE, yy * SIZE, SIZE, SIZE);
-      }
+
+    // on répète la forme verticalement selon height
+    for (let k = 0; k < p.height; k++) {
+      p.shape.forEach(([dx, dy]) => {
+        const xx = (p.x + dx) * SIZE;
+        const yy = (p.y + dy + k) * SIZE;
+        if (yy >= 0 && yy < ROWS * SIZE) {
+          ctx.fillRect(xx, yy, SIZE, SIZE);
+        }
+      });
     }
+  });
+
+  // labels (programmes de financement)
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "10px sans-serif";
+  ctx.textAlign = "center";
+  labels.forEach((txt, i) => {
+    const x = i * SIZE + SIZE / 2;
+    const y = ROWS * SIZE + 12;
+    ctx.fillText(txt, x, y);
   });
 }
 
 // =====================
 // CHUTE
 // =====================
+
 function update() {
   if (!pieces.length) return;
 
   pieces.forEach(p => {
     if (p.y < 0) return;
 
-    if (p.y + p.height >= ROWS) {
+    // collision sol
+    const maxY = ROWS - p.height - 4; // marge pour la forme
+    if (p.y >= maxY) {
       lockPiece(p);
       p.y = -999;
       return;
     }
 
-    if (grid[p.y + p.height][p.x]) {
+    // collision autre pièce (approx simple : on regarde sous la forme)
+    const nextY = p.y + 1;
+    let collision = false;
+    p.shape.forEach(([dx, dy]) => {
+      const gy = nextY + dy;
+      const gx = p.x + dx;
+      if (gy >= 0 && gy < ROWS && gx >= 0 && gx < COLS) {
+        if (grid[gy][gx]) collision = true;
+      }
+    });
+
+    if (collision) {
       lockPiece(p);
       p.y = -999;
       return;
@@ -166,10 +221,13 @@ function update() {
 }
 
 function lockPiece(p) {
-  for (let i = 0; i < p.height; i++) {
-    const yy = p.y + i;
-    if (yy >= 0 && yy < ROWS) {
-      grid[yy][p.x] = p.color;
+  p.shape.forEach(([dx, dy]) => {
+    for (let k = 0; k < p.height; k++) {
+      const gy = p.y + dy + k;
+      const gx = p.x + dx;
+      if (gy >= 0 && gy < ROWS && gx >= 0 && gx < COLS) {
+        grid[gy][gx] = p.color;
+      }
     }
-  }
+  });
 }
