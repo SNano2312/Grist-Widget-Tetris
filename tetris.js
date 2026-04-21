@@ -58,12 +58,17 @@ window.grist.onRecords((records) => {
 
   console.log("records =", records);
 
-  if (!records || !records.B) {
-    console.warn("Format inattendu :", records);
+  // Vérification structure
+  if (!records || !records["Budget AE N"]) {
+    console.warn("Colonnes non trouvées :", records);
     return;
   }
 
-  const rowCount = records.B.length;
+  const budgets = records["Budget AE N"];
+  const consos  = records["Conso AE N"];
+  const nonconsos = records["Non Conso AE N"];
+
+  const rowCount = budgets.length;
   COLS = rowCount;
 
   canvas.width = COLS * SIZE;
@@ -74,32 +79,31 @@ window.grist.onRecords((records) => {
 
   for (let i = 0; i < rowCount; i++) {
 
-    const programme = records.B[i];
-    const budgetAE = records.F[i];
-    const consoAE  = records.G[i];
-    const nonConso = records.H[i];
+    const budget = budgets[i];
+    const conso  = consos[i];
+    const nonconso = nonconsos[i];
 
-    console.log("Ligne", i, programme, budgetAE, consoAE, nonConso);
+    console.log("Ligne", i, budget, conso, nonconso);
 
     pieces.push({
       x: i,
       y: 0,
       color: COLOR_BUDGET,
-      height: scaleHeight(budgetAE)
+      height: scaleHeight(budget)
     });
 
     pieces.push({
       x: i,
       y: 0,
       color: COLOR_CONSO,
-      height: scaleHeight(consoAE)
+      height: scaleHeight(conso)
     });
 
     pieces.push({
       x: i,
       y: 0,
       color: COLOR_NONCONSO,
-      height: scaleHeight(nonConso)
+      height: scaleHeight(nonconso)
     });
   }
 
