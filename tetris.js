@@ -17,12 +17,14 @@ const LEGEND_HEIGHT = 80;
 const COLOR_CONSO   = "#ff0033"; // rouge
 const COLOR_RAR     = "#ffd700"; // jaune (Reste à réceptionner)
 const COLOR_ATTENTE = "#3399ff"; // bleu (NF en attente)
+const COLOR_DISPO   = "#00cc44"; // vert (Disponible)
 
-// champs Grist (noms EXACTS)
-const FIELD_CONSO   = "Conso_AE_N";
-const FIELD_RAR     = "Reste à réceptionner N";
-const FIELD_ATTENTE = "NF en attente N";
-const FIELD_PROG    = "Programme_de_financement";
+// champs Grist — NOMS EXACTS
+const FIELD_CONSO    = "Conso_AE_N";
+const FIELD_RAR      = "Reste_a_receptionner_N";
+const FIELD_ATTENTE  = "NF_en_attente_N";
+const FIELD_DISPO    = "Non_Conso_AE_N";
+const FIELD_PROG     = "Programme_de_financement";
 
 // =====================
 // CANVAS
@@ -91,17 +93,17 @@ window.grist.onRecords((records) => {
 
   COLS = records.length;
 
-  // vérif rapide des clés
   console.log("Clés détectées :", Object.keys(records[0] || {}));
 
-  // max pour l'échelle (on prend le total empilé)
+  // max pour l'échelle : total empilé
   maxValue = 0;
   records.forEach(row => {
     const conso   = Number(row[FIELD_CONSO]   ?? 0);
     const rar     = Number(row[FIELD_RAR]     ?? 0);
     const attente = Number(row[FIELD_ATTENTE] ?? 0);
-    const total   = conso + rar + attente;
-    maxValue = Math.max(maxValue, conso, rar, attente, total);
+    const dispo   = Number(row[FIELD_DISPO]   ?? 0);
+    const total   = conso + rar + attente + dispo;
+    maxValue = Math.max(maxValue, conso, rar, attente, dispo, total);
   });
 
   canvas.width  = LEGEND_WIDTH + AXIS_WIDTH + FIXED_COLS * COL_WIDTH + 40;
@@ -116,6 +118,7 @@ window.grist.onRecords((records) => {
     const conso   = Number(row[FIELD_CONSO]   ?? 0);
     const rar     = Number(row[FIELD_RAR]     ?? 0);
     const attente = Number(row[FIELD_ATTENTE] ?? 0);
+    const dispo   = Number(row[FIELD_DISPO]   ?? 0);
 
     labels[colIndex] = String(row[FIELD_PROG] ?? "");
 
@@ -143,6 +146,15 @@ window.grist.onRecords((records) => {
         y: -1,
         rows: valueToRows(attente),
         color: COLOR_ATTENTE
+      });
+    }
+
+    if (dispo > 0) {
+      pendingPieces.push({
+        col: colIndex,
+        y: -1,
+        rows: valueToRows(dispo),
+        color: COLOR_DISPO
       });
     }
   });
@@ -182,6 +194,12 @@ function drawLegend() {
   ctx.fillRect(x, y, 15, 15);
   ctx.fillStyle = "#fff";
   ctx.fillText("NF en attente", x + 25, y + 12);
+
+  y += 25;
+  ctx.fillStyle = COLOR_DISPO;
+  ctx.fillRect(x, y, 15, 15);
+  ctx.fillStyle = "#fff";
+  ctx.fillText("Disponible", x + 25, y + 12);
 }
 
 function drawAxis() {
