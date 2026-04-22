@@ -7,8 +7,8 @@ console.log("tetris.js chargé");
 // hauteur d'une case
 const SIZE_Y = 20;
 
-// largeur d'une colonne (large pour les labels)
-const COL_WIDTH = 70;
+// largeur d'une colonne (rétrécie)
+const COL_WIDTH = 55;
 
 // nombre de lignes verticales
 const ROWS = 30;
@@ -17,9 +17,10 @@ const ROWS = 30;
 const FIXED_COLS = 20;
 
 // marge pour l'axe vertical
-const AXIS_WIDTH = 90;
+const AXIS_WIDTH = 120;   // augmenté pour éviter la troncature
 
 // espace pour la légende couleurs
+const LEGEND_WIDTH = 120; // légende déplacée à gauche
 const LEGEND_HEIGHT = 80;
 
 // couleurs
@@ -109,8 +110,8 @@ window.grist.onRecords((records) => {
     maxValue = Math.max(maxValue, budget, conso, dispo);
   });
 
-  // largeur FIXE + marge pour légende
-  canvas.width  = AXIS_WIDTH + FIXED_COLS * COL_WIDTH + 220;
+  // largeur FIXE + légende à gauche
+  canvas.width  = LEGEND_WIDTH + AXIS_WIDTH + FIXED_COLS * COL_WIDTH + 40;
   canvas.height = ROWS * SIZE_Y + LEGEND_HEIGHT + 50;
 
   grid   = Array.from({ length: ROWS }, () => Array(FIXED_COLS).fill(null));
@@ -163,13 +164,40 @@ window.grist.onRecords((records) => {
 // DESSIN
 // =====================
 
+function drawLegend() {
+  let x = 10;   // légende à gauche
+  let y = 20;
+
+  ctx.font = "13px sans-serif";
+  ctx.textAlign = "left";
+
+  ctx.fillStyle = COLOR_BUDGET;
+  ctx.fillRect(x, y, 15, 15);
+  ctx.fillStyle = "#fff";
+  ctx.fillText("Budget", x + 25, y + 12);
+
+  y += 25;
+  ctx.fillStyle = COLOR_CONSO;
+  ctx.fillRect(x, y, 15, 15);
+  ctx.fillStyle = "#fff";
+  ctx.fillText("Conso", x + 25, y + 12);
+
+  y += 25;
+  ctx.fillStyle = COLOR_DISPO;
+  ctx.fillRect(x, y, 15, 15);
+  ctx.fillStyle = "#fff";
+  ctx.fillText("Disponible", x + 25, y + 12);
+}
+
 function drawAxis() {
   ctx.strokeStyle = "#888";
   ctx.lineWidth = 1;
 
+  const axisX = LEGEND_WIDTH + AXIS_WIDTH - 1;
+
   ctx.beginPath();
-  ctx.moveTo(AXIS_WIDTH - 1, 0);
-  ctx.lineTo(AXIS_WIDTH - 1, ROWS * SIZE_Y);
+  ctx.moveTo(axisX, 0);
+  ctx.lineTo(axisX, ROWS * SIZE_Y);
   ctx.stroke();
 
   const steps = 6;
@@ -181,37 +209,14 @@ function drawAxis() {
     const ratio = i / steps;
     const y = ROWS * SIZE_Y - ratio * (ROWS * SIZE_Y);
     const val = Math.round(maxValue * ratio);
+
     ctx.beginPath();
-    ctx.moveTo(AXIS_WIDTH - 5, y);
-    ctx.lineTo(AXIS_WIDTH - 1, y);
+    ctx.moveTo(axisX - 5, y);
+    ctx.lineTo(axisX, y);
     ctx.stroke();
-    ctx.fillText(val.toString(), AXIS_WIDTH - 8, y + 3);
+
+    ctx.fillText(val.toString(), axisX - 8, y + 3);
   }
-}
-
-function drawLegend() {
-  const x0 = AXIS_WIDTH + FIXED_COLS * COL_WIDTH + 30;
-  let y = 20;
-
-  ctx.font = "13px sans-serif";
-  ctx.textAlign = "left";
-
-  ctx.fillStyle = COLOR_BUDGET;
-  ctx.fillRect(x0, y, 15, 15);
-  ctx.fillStyle = "#fff";
-  ctx.fillText("Budget", x0 + 25, y + 12);
-
-  y += 25;
-  ctx.fillStyle = COLOR_CONSO;
-  ctx.fillRect(x0, y, 15, 15);
-  ctx.fillStyle = "#fff";
-  ctx.fillText("Conso", x0 + 25, y + 12);
-
-  y += 25;
-  ctx.fillStyle = COLOR_DISPO;
-  ctx.fillRect(x0, y, 15, 15);
-  ctx.fillStyle = "#fff";
-  ctx.fillText("Disponible", x0 + 25, y + 12);
 }
 
 function drawLabels() {
@@ -219,7 +224,7 @@ function drawLabels() {
   ctx.font = "12px sans-serif";
 
   labels.forEach((txt, i) => {
-    const x = AXIS_WIDTH + i * COL_WIDTH + COL_WIDTH / 2;
+    const x = LEGEND_WIDTH + AXIS_WIDTH + i * COL_WIDTH + COL_WIDTH / 2;
     const y = ROWS * SIZE_Y + 40;
 
     ctx.save();
@@ -234,15 +239,15 @@ function drawLabels() {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  drawAxis();
   drawLegend();
+  drawAxis();
 
   // grille figée
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < FIXED_COLS; c++) {
       if (grid[r][c]) {
         ctx.fillStyle = grid[r][c];
-        const x = AXIS_WIDTH + c * COL_WIDTH;
+        const x = LEGEND_WIDTH + AXIS_WIDTH + c * COL_WIDTH;
         const y = r * SIZE_Y;
         ctx.fillRect(x, y, COL_WIDTH, SIZE_Y);
       }
@@ -255,7 +260,7 @@ function draw() {
     for (let i = 0; i < p.rows; i++) {
       const r = p.y - i;
       if (r >= 0 && r < ROWS) {
-        const x = AXIS_WIDTH + p.col * COL_WIDTH;
+        const x = LEGEND_WIDTH + AXIS_WIDTH + p.col * COL_WIDTH;
         const y = r * SIZE_Y;
         ctx.fillRect(x, y, COL_WIDTH, SIZE_Y);
       }
