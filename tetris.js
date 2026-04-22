@@ -1,40 +1,29 @@
 console.log("tetris.js chargé");
 
 // =====================
-// CONFIG
+// CONFIG AFFICHAGE
 // =====================
 
-// hauteur d'une case
 const SIZE_Y = 20;
-
-// largeur d'une colonne (rétrécie)
 const COL_WIDTH = 55;
-
-// nombre de lignes verticales
 const ROWS = 30;
-
-// largeur fixe de la grille (en colonnes)
 const FIXED_COLS = 20;
 
-// marge pour l'axe vertical
 const AXIS_WIDTH = 120;
-
-// espace pour la légende couleurs
 const LEGEND_WIDTH = 120;
 const LEGEND_HEIGHT = 80;
 
 // couleurs
-const COLOR_CONSO  = "#ff0033"; // rouge
-const COLOR_DISPO  = "#00cc44"; // vert
-const COLOR_RAR    = "#ffd700"; // jaune (reste à réceptionner)
-const COLOR_ATTENTE = "#3399ff"; // bleu (N en attente)
+const COLOR_CONSO   = "#ff0033"; // rouge
+const COLOR_DISPO   = "#00cc44"; // vert
+const COLOR_RAR     = "#ffd700"; // jaune
+const COLOR_ATTENTE = "#3399ff"; // bleu
 
-// champs Grist
-const FIELD_CONSO    = "Conso_AE_N";
-const FIELD_NONCONSO = "Non_Conso_AE_N"; // si tu veux l'utiliser
-const FIELD_RAR      = "Reste à réceptionner N";
-const FIELD_ATTENTE  = "NF en attente N";
-const FIELD_PROG     = "Programme_de_financement";
+// noms "logiques" (on va les mapper aux vrais noms Grist)
+const LOGICAL_CONSO   = "Conso_AE_N";
+const LOGICAL_RAR     = "Reste à réceptionner N";
+const LOGICAL_ATTENTE = "NF en attente N";
+const LOGICAL_PROG    = "Programme_de_financement";
 
 // =====================
 // CANVAS
@@ -52,6 +41,12 @@ let pendingPieces = [];
 let activePieces = [];
 let gameStarted = false;
 let maxValue = 0;
+
+// mapping réel des champs
+let FIELD_CONSO   = null;
+let FIELD_RAR     = null;
+let FIELD_ATTENTE = null;
+let FIELD_PROG    = null;
 
 // =====================
 // MUSIQUE
@@ -87,6 +82,29 @@ function shuffle(array) {
   return array;
 }
 
+// essaie de trouver un champ réel à partir de plusieurs variantes
+function resolveFieldName(keys, candidates) {
+  for (const cand of candidates) {
+    // exact
+    if (keys.includes(cand)) return cand;
+    // version avec espaces -> underscores
+    const underscored = cand.replace(/\s+/g, "_");
+    if (keys.includes(underscored)) return underscored;
+    // version avec underscores -> espaces
+    const spaced = cand.replace(/_/g, " ");
+    if (keys.includes(spaced)) return spaced;
+  }
+  // fallback : recherche floue
+  const lowerCandidates = candidates.map(c => c.toLowerCase());
+  for (const k of keys) {
+    const lk = k.toLowerCase();
+    if (lowerCandidates.some(c => lk.includes(c.replace(/\s+/g, "").replace(/_/g, "")))) {
+      return k;
+    }
+  }
+  return null;
+}
+
 // =====================
 // GRIST
 // =====================
@@ -103,18 +121,38 @@ window.grist.onRecords((records) => {
 
   COLS = records.length;
 
-  // max pour l'échelle
+  // résolution des noms de colonnes à partir de la première ligne
+  const keys = Object.keys(records[0] || {});
+  console.log("Clés détectées :", keys);
+
+  FIELD_CONSO = resolveFieldName(keys, [LOGICAL_CONSO, "Conso AE N"]);
+  FIELD_RAR   = resolveFieldName(keys, [LOGICAL_RAR, "Reste_a_receptionner_N"]);
+  FIELD_ATTENTE = resolveFieldName(keys, [LOGICAL_ATTENTE, "NF_en_attente_N"]);
+  FIELD_PROG  = resolveFieldName(keys, [LOGICAL_PROG, "Programme de financement"]);
+
+  console.log("Mapping colonnes :", {
+    FIELD_CONSO,
+    FIELD_RAR,
+    FIELD_ATTENTE,
+    FIELD_PROG
+  });
+
+  if (!FIELD_CONSO || !FIELD_RAR || !FIELD_ATTENTE || !FIELD_PROG) {
+    console.error("Impossible de résoudre tous les champs nécessaires.");
+    return;
+  }
+
+  // calcul du max pour l'échelle
   maxValue = 0;
   records.forEach(row => {
     const conso   = Number(row[FIELD_CONSO]   ?? 0);
     const rar     = Number(row[FIELD_RAR]     ?? 0);
     const attente = Number(row[FIELD_ATTENTE] ?? 0);
-    const dispo   = rar + attente - conso; // ou autre logique si tu veux
+    const dispo   = rar + attente - conso;
 
     maxValue = Math.max(maxValue, conso, rar, attente, dispo);
   });
 
-  // largeur FIXE + légende à gauche
   canvas.width  = LEGEND_WIDTH + AXIS_WIDTH + FIXED_COLS * COL_WIDTH + 40;
   canvas.height = ROWS * SIZE_Y + LEGEND_HEIGHT + 50;
 
