@@ -17,21 +17,23 @@ const ROWS = 30;
 const FIXED_COLS = 20;
 
 // marge pour l'axe vertical
-const AXIS_WIDTH = 120;   // augmenté pour éviter la troncature
+const AXIS_WIDTH = 120;
 
 // espace pour la légende couleurs
-const LEGEND_WIDTH = 120; // légende déplacée à gauche
+const LEGEND_WIDTH = 120;
 const LEGEND_HEIGHT = 80;
 
 // couleurs
-const COLOR_BUDGET = "#007bff"; // bleu
 const COLOR_CONSO  = "#ff0033"; // rouge
 const COLOR_DISPO  = "#00cc44"; // vert
+const COLOR_RAR    = "#ffd700"; // jaune (reste à réceptionner)
+const COLOR_ATTENTE = "#3399ff"; // bleu (N en attente)
 
 // champs Grist
-const FIELD_BUDGET   = "Budget_AE_N";
 const FIELD_CONSO    = "Conso_AE_N";
-const FIELD_NONCONSO = "Non_Conso_AE_N";
+const FIELD_NONCONSO = "Non_Conso_AE_N"; // si tu veux l'utiliser
+const FIELD_RAR      = "Reste à réceptionner N";
+const FIELD_ATTENTE  = "NF en attente N";
 const FIELD_PROG     = "Programme_de_financement";
 
 // =====================
@@ -104,10 +106,12 @@ window.grist.onRecords((records) => {
   // max pour l'échelle
   maxValue = 0;
   records.forEach(row => {
-    const budget = Number(row[FIELD_BUDGET] ?? 0);
-    const conso  = Number(row[FIELD_CONSO]  ?? 0);
-    const dispo  = budget - conso;
-    maxValue = Math.max(maxValue, budget, conso, dispo);
+    const conso   = Number(row[FIELD_CONSO]   ?? 0);
+    const rar     = Number(row[FIELD_RAR]     ?? 0);
+    const attente = Number(row[FIELD_ATTENTE] ?? 0);
+    const dispo   = rar + attente - conso; // ou autre logique si tu veux
+
+    maxValue = Math.max(maxValue, conso, rar, attente, dispo);
   });
 
   // largeur FIXE + légende à gauche
@@ -120,20 +124,13 @@ window.grist.onRecords((records) => {
   activePieces = [];
 
   records.forEach((row, colIndex) => {
-    const budget = Number(row[FIELD_BUDGET] ?? 0);
-    const conso  = Number(row[FIELD_CONSO]  ?? 0);
-    const dispo  = budget - conso;
+    const conso   = Number(row[FIELD_CONSO]   ?? 0);
+    const rar     = Number(row[FIELD_RAR]     ?? 0);
+    const attente = Number(row[FIELD_ATTENTE] ?? 0);
+    const dispo   = rar + attente - conso;
 
     labels[colIndex] = String(row[FIELD_PROG] ?? "");
 
-    if (budget > 0) {
-      pendingPieces.push({
-        col: colIndex,
-        y: -1,
-        rows: valueToRows(budget),
-        color: COLOR_BUDGET
-      });
-    }
     if (conso > 0) {
       pendingPieces.push({
         col: colIndex,
@@ -142,6 +139,25 @@ window.grist.onRecords((records) => {
         color: COLOR_CONSO
       });
     }
+
+    if (rar > 0) {
+      pendingPieces.push({
+        col: colIndex,
+        y: -1,
+        rows: valueToRows(rar),
+        color: COLOR_RAR
+      });
+    }
+
+    if (attente > 0) {
+      pendingPieces.push({
+        col: colIndex,
+        y: -1,
+        rows: valueToRows(attente),
+        color: COLOR_ATTENTE
+      });
+    }
+
     if (dispo > 0) {
       pendingPieces.push({
         col: colIndex,
@@ -165,22 +181,28 @@ window.grist.onRecords((records) => {
 // =====================
 
 function drawLegend() {
-  let x = 10;   // légende à gauche
+  let x = 10;
   let y = 20;
 
   ctx.font = "13px sans-serif";
   ctx.textAlign = "left";
 
-  ctx.fillStyle = COLOR_BUDGET;
-  ctx.fillRect(x, y, 15, 15);
-  ctx.fillStyle = "#fff";
-  ctx.fillText("Budget", x + 25, y + 12);
-
-  y += 25;
   ctx.fillStyle = COLOR_CONSO;
   ctx.fillRect(x, y, 15, 15);
   ctx.fillStyle = "#fff";
   ctx.fillText("Conso", x + 25, y + 12);
+
+  y += 25;
+  ctx.fillStyle = COLOR_RAR;
+  ctx.fillRect(x, y, 15, 15);
+  ctx.fillStyle = "#fff";
+  ctx.fillText("Reste à réceptionner", x + 25, y + 12);
+
+  y += 25;
+  ctx.fillStyle = COLOR_ATTENTE;
+  ctx.fillRect(x, y, 15, 15);
+  ctx.fillStyle = "#fff";
+  ctx.fillText("N en attente", x + 25, y + 12);
 
   y += 25;
   ctx.fillStyle = COLOR_DISPO;
