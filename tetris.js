@@ -15,11 +15,11 @@ const LEGEND_HEIGHT = 80;
 
 // couleurs
 const COLOR_CONSO   = "#ff0033"; // rouge
-const COLOR_RAR     = "#ffd700"; // jaune (Reste à réceptionner)
-const COLOR_ATTENTE = "#3399ff"; // bleu (NF en attente)
-const COLOR_DISPO   = "#00cc44"; // vert (Disponible)
+const COLOR_RAR     = "#ffd700"; // jaune
+const COLOR_ATTENTE = "#3399ff"; // bleu
+const COLOR_DISPO   = "#00cc44"; // vert
 
-// champs Grist — NOMS EXACTS
+// champs Grist EXACTS
 const FIELD_CONSO    = "Conso_AE_N";
 const FIELD_RAR      = "Reste_a_receptionner_N";
 const FIELD_ATTENTE  = "NF_en_attente_N";
@@ -63,6 +63,18 @@ btn.onclick = () => {
 // UTILITAIRES
 // =====================
 
+// lecture robuste des nombres (virgules, espaces…)
+function toNumber(v) {
+  if (v == null) return 0;
+  if (typeof v === "number") return v;
+  if (typeof v === "string") {
+    const cleaned = v.replace(/\s/g, "").replace(",", ".");
+    const n = parseFloat(cleaned);
+    return isNaN(n) ? 0 : n;
+  }
+  return 0;
+}
+
 function valueToRows(value) {
   if (!value || value <= 0 || !maxValue) return 1;
   const usableRows = ROWS - 3;
@@ -85,24 +97,21 @@ window.grist.ready({ requiredAccess: "full" });
 
 window.grist.onRecords((records) => {
   console.log("records reçus :", records);
+  console.log("Clés détectées :", Object.keys(records[0] || {}));
 
-  if (!Array.isArray(records) || records.length === 0) {
-    console.warn("Aucune ligne reçue.");
-    return;
-  }
+  if (!Array.isArray(records) || records.length === 0) return;
 
   COLS = records.length;
 
-  console.log("Clés détectées :", Object.keys(records[0] || {}));
-
-  // max pour l'échelle : total empilé
+  // max pour l'échelle
   maxValue = 0;
   records.forEach(row => {
-    const conso   = Number(row[FIELD_CONSO]   ?? 0);
-    const rar     = Number(row[FIELD_RAR]     ?? 0);
-    const attente = Number(row[FIELD_ATTENTE] ?? 0);
-    const dispo   = Number(row[FIELD_DISPO]   ?? 0);
-    const total   = conso + rar + attente + dispo;
+    const conso   = toNumber(row[FIELD_CONSO]);
+    const rar     = toNumber(row[FIELD_RAR]);
+    const attente = toNumber(row[FIELD_ATTENTE]);
+    const dispo   = toNumber(row[FIELD_DISPO]);
+
+    const total = conso + rar + attente + dispo;
     maxValue = Math.max(maxValue, conso, rar, attente, dispo, total);
   });
 
@@ -115,48 +124,24 @@ window.grist.onRecords((records) => {
   activePieces = [];
 
   records.forEach((row, colIndex) => {
-    const conso   = Number(row[FIELD_CONSO]   ?? 0);
-    const rar     = Number(row[FIELD_RAR]     ?? 0);
-    const attente = Number(row[FIELD_ATTENTE] ?? 0);
-    const dispo   = Number(row[FIELD_DISPO]   ?? 0);
+    const conso   = toNumber(row[FIELD_CONSO]);
+    const rar     = toNumber(row[FIELD_RAR]);
+    const attente = toNumber(row[FIELD_ATTENTE]);
+    const dispo   = toNumber(row[FIELD_DISPO]);
 
     labels[colIndex] = String(row[FIELD_PROG] ?? "");
 
-    if (conso > 0) {
-      pendingPieces.push({
-        col: colIndex,
-        y: -1,
-        rows: valueToRows(conso),
-        color: COLOR_CONSO
-      });
-    }
+    if (conso > 0)
+      pendingPieces.push({ col: colIndex, y: -1, rows: valueToRows(conso), color: COLOR_CONSO });
 
-    if (rar > 0) {
-      pendingPieces.push({
-        col: colIndex,
-        y: -1,
-        rows: valueToRows(rar),
-        color: COLOR_RAR
-      });
-    }
+    if (rar > 0)
+      pendingPieces.push({ col: colIndex, y: -1, rows: valueToRows(rar), color: COLOR_RAR });
 
-    if (attente > 0) {
-      pendingPieces.push({
-        col: colIndex,
-        y: -1,
-        rows: valueToRows(attente),
-        color: COLOR_ATTENTE
-      });
-    }
+    if (attente > 0)
+      pendingPieces.push({ col: colIndex, y: -1, rows: valueToRows(attente), color: COLOR_ATTENTE });
 
-    if (dispo > 0) {
-      pendingPieces.push({
-        col: colIndex,
-        y: -1,
-        rows: valueToRows(dispo),
-        color: COLOR_DISPO
-      });
-    }
+    if (dispo > 0)
+      pendingPieces.push({ col: colIndex, y: -1, rows: valueToRows(dispo), color: COLOR_DISPO });
   });
 
   shuffle(pendingPieces);
