@@ -37,7 +37,8 @@ const ctx = canvas.getContext("2d");
 // VARIABLES
 // =====================
 let COLS = 0;
-let grid = [];
+let colStacks = [];
+let colSegments = [];
 let labels = [];
 let pendingPieces = [];
 let activePieces = [];
@@ -75,10 +76,21 @@ function toNumber(v) {
   return 0;
 }
 
-function valueToRows(value) {
-  if (!value || value <= 0 || !maxValue) return 1;
-  const usableRows = ROWS - 3;
-  return Math.max(1, Math.round(value / maxValue * usableRows));
+// Calcule les hauteurs en pixels pour les valeurs d'une colonne.
+// Garantit que la somme est exacte (pas de dérive par arrondis).
+function computeHeights(values) {
+  const total = values.reduce((a, b) => a + b, 0);
+  if (total <= 0 || !maxValue) return values.map(() => 0);
+
+  const usablePixels = (ROWS - 1) * SIZE_Y * (total / maxValue);
+
+  const raw = values.map(v => v / total * usablePixels);
+  const floored = raw.map(v => Math.floor(v));
+  const remainders = raw.map((v, i) => ({ i, r: v - floored[i] }));
+  const deficit = Math.round(usablePixels) - floored.reduce((a, b) => a + b, 0);
+  remainders.sort((a, b) => b.r - a.r);
+  for (let k = 0; k < deficit && k < remainders.length; k++) floored[remainders[k].i]++;
+  return floored;
 }
 
 function shuffle(array) {
@@ -118,7 +130,8 @@ window.grist.onRecords((records) => {
   canvas.width  = LEGEND_WIDTH + AXIS_WIDTH + FIXED_COLS * COL_WIDTH + 40;
   canvas.height = ROWS * SIZE_Y + LEGEND_HEIGHT + 50;
 
-  grid   = Array.from({ length: ROWS }, () => Array(FIXED_COLS).fill(null));
+  colStacks   = Array(FIXED_COLS).fill(0);
+  colSegments = Array.from({ length: FIXED_COLS }, () => []);
   labels = [];
   pendingPieces = [];
   activePieces = [];
@@ -134,17 +147,22 @@ window.grist.onRecords((records) => {
       fonds: String(row[FIELD_FONDS] ?? "")
     };
 
-    if (conso > 0)
-      pendingPieces.push({ col: colIndex, y: -1, rows: valueToRows(conso), color: COLOR_CONSO });
+    // Calcul des hauteurs en pixels par colonne (somme exacte, pas d'arrondi cumulatif)
+    const values  = [conso, rar, attente, dispo];
+    const colors  = [COLOR_CONSO, COLOR_RAR, COLOR_ATTENTE, COLOR_DISPO];
+    const heights = computeHeights(values);
 
-    if (rar > 0)
-      pendingPieces.push({ col: colIndex, y: -1, rows: valueToRows(rar), color: COLOR_RAR });
-
-    if (attente > 0)
-      pendingPieces.push({ col: colIndex, y: -1, rows: valueToRows(attente), color: COLOR_ATTENTE });
-
-    if (dispo > 0)
-      pendingPieces.push({ col: colIndex, y: -1, rows: valueToRows(dispo), color: COLOR_DISPO });
+    values.forEach((val, idx) => {
+      if (val > 0 && heights[idx] > 0) {
+        pendingPieces.push({
+          col:    colIndex,
+          y:      -1,
+          px:     0,
+          pixels: heights[idx],   // hauteur en pixels
+          color:  colors[idx]
+        });
+      }
+    });
   });
 
   shuffle(pendingPieces);
@@ -249,15 +267,46 @@ function drawLabels() {
   });
 }
 
-// Dessine une pièce avec sa position réelle en pixels (pour l'animation de glissement)
+// =====================
+// CHUTE & GLISSEMENT (tout en pixels)
+// =====================
+
+// La grille stocke la hauteur déjà occupée (en pixels) par colonne
+// et les segments colorés figés (tableau de {top, height, color} par colonne)
+let colStacks = [];   // colStacks[c] = hauteur occupée depuis le bas, en pixels
+let colSegments = []; // colSegments[c] = [{top, height, color}, ...]
+
+function targetPx(col) {
+  return LEGEND_WIDTH + AXIS_WIDTH + col * COL_WIDTH;
+}
+
+const gridH = () => ROWS * SIZE_Y; // hauteur totale de la grille en pixels
+
+function canMoveDown(piece) {
+  if (Math.abs(piece.px - targetPx(piece.col)) > 1) return false;
+  // Le bas de la pièce en cours de chute = piece.pyBottom
+  const nextBottom = piece.pyBottom + 2; // vitesse de chute en pixels
+  const floor = gridH() - (colStacks[piece.col] || 0);
+  return nextBottom + piece.pixels <= floor;
+}
+
+function lockPiece(piece) {
+  const c = piece.col;
+  const h = piece.pixels;
+  const bottom = gridH() - (colStacks[c] || 0);
+  const top = bottom - h;
+  colSegments[c].push({ top, height: h, color: piece.color });
+  colStacks[c] = (colStacks[c] || 0) + h;
+}
+
 function drawPieceAtPixel(p) {
   ctx.fillStyle = p.color;
-  for (let i = 0; i < p.rows; i++) {
-    const r = p.y - i;
-    if (r >= 0 && r < ROWS) {
-      const y = r * SIZE_Y;
-      ctx.fillRect(p.px, y, COL_WIDTH, SIZE_Y);
-    }
+  const x = p.px;
+  const top = p.pyBottom - p.pixels;
+  if (top < gridH()) {
+    const clippedTop = Math.max(0, top);
+    const clippedH   = p.pyBottom - clippedTop;
+    ctx.fillRect(x, clippedTop, COL_WIDTH, clippedH);
   }
 }
 
@@ -267,70 +316,31 @@ function draw() {
   drawLegend();
   drawAxis();
 
-  // grille figée
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < FIXED_COLS; c++) {
-      if (grid[r][c]) {
-        ctx.fillStyle = grid[r][c];
-        const x = LEGEND_WIDTH + AXIS_WIDTH + c * COL_WIDTH;
-        const y = r * SIZE_Y;
-        ctx.fillRect(x, y, COL_WIDTH, SIZE_Y);
-      }
-    }
+  // segments figés
+  for (let c = 0; c < FIXED_COLS; c++) {
+    (colSegments[c] || []).forEach(seg => {
+      ctx.fillStyle = seg.color;
+      const x = LEGEND_WIDTH + AXIS_WIDTH + c * COL_WIDTH;
+      ctx.fillRect(x, seg.top, COL_WIDTH, seg.height);
+    });
   }
 
   // pièces en chute/glissement
-  activePieces.forEach(p => {
-    drawPieceAtPixel(p);
-  });
+  activePieces.forEach(p => drawPieceAtPixel(p));
 
   drawLabels();
-}
-
-// =====================
-// CHUTE & GLISSEMENT
-// =====================
-
-// Retourne la position X cible (en pixels) pour une colonne donnée
-function targetPx(col) {
-  return LEGEND_WIDTH + AXIS_WIDTH + col * COL_WIDTH;
-}
-
-function canMoveDown(piece) {
-  // Ne peut descendre que si alignée sur sa colonne cible
-  if (Math.abs(piece.px - targetPx(piece.col)) > 1) return false;
-
-  const nextY = piece.y + 1;
-  if (nextY - (piece.rows - 1) >= ROWS) return false;
-
-  for (let i = 0; i < piece.rows; i++) {
-    const r = nextY - i;
-    if (r >= 0 && r < ROWS) {
-      if (grid[r][piece.col]) return false;
-    }
-  }
-  return true;
-}
-
-function lockPiece(piece) {
-  for (let i = 0; i < piece.rows; i++) {
-    const r = piece.y - i;
-    if (r >= 0 && r < ROWS) {
-      grid[r][piece.col] = piece.color;
-    }
-  }
 }
 
 function update() {
   // Spawn une nouvelle pièce depuis une colonne aléatoire en haut
   if (pendingPieces.length && activePieces.length < 3) {
     const p = pendingPieces.shift();
-    p.y = 0;
-    // Position de départ aléatoire parmi les colonnes disponibles
+    // Démarre en haut, position X aléatoire
     const startCol = Math.floor(Math.random() * FIXED_COLS);
-    p.px = targetPx(startCol);
-    // Vitesse de glissement horizontal : 1 pixel par tick si besoin
-    p.slideSpeed = COL_WIDTH / 8; // glisse de ~7px par tick
+    p.px        = targetPx(startCol);
+    p.pyBottom  = 0; // bas de la pièce en pixels depuis le haut de la grille
+    p.slideSpeed = COL_WIDTH / 8;
+    p.fallSpeed  = 4; // pixels par tick de descente
     activePieces.push(p);
   }
 
@@ -339,22 +349,18 @@ function update() {
     const dx = tx - p.px;
 
     if (Math.abs(dx) > 1) {
-      // Phase de glissement horizontal (et descente lente simultanée)
+      // Phase de glissement horizontal + légère descente
       const step = Math.min(p.slideSpeed, Math.abs(dx));
       p.px += Math.sign(dx) * step;
-
-      // Descente lente pendant le glissement (1 ligne toutes les 2 ticks)
-      if (!p._slideTick) p._slideTick = 0;
-      p._slideTick++;
-      if (p._slideTick % 2 === 0 && p.y < 3) {
-        p.y++;
-      }
+      if (p.pyBottom < p.pixels + SIZE_Y) p.pyBottom += 2;
     } else {
-      // Aligné : snap sur la colonne exacte et descente normale
+      // Aligné : chute normale en pixels
       p.px = tx;
       if (canMoveDown(p)) {
-        p.y++;
+        p.pyBottom += p.fallSpeed;
       } else {
+        // Snap précis sur la pile
+        p.pyBottom = gridH() - (colStacks[p.col] || 0);
         lockPiece(p);
         p._locked = true;
       }
