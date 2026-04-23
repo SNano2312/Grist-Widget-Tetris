@@ -109,8 +109,9 @@ window.grist.onRecords((records) => {
     const attente = toNumber(row[FIELD_ATTENTE]);
     const dispo   = toNumber(row[FIELD_DISPO]);
 
+    // maxValue = le total de la colonne la plus haute (les pièces s'empilent)
     const total = conso + rar + attente + dispo;
-    maxValue = Math.max(maxValue, conso, rar, attente, dispo, total);
+    maxValue = Math.max(maxValue, total);
   });
 
   canvas.width  = LEGEND_WIDTH + AXIS_WIDTH + FIXED_COLS * COL_WIDTH + 40;
