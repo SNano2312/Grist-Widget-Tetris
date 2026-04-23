@@ -63,7 +63,6 @@ btn.onclick = () => {
 // UTILITAIRES
 // =====================
 
-// lecture robuste des nombres (virgules, espaces…)
 function toNumber(v) {
   if (v == null) return 0;
   if (typeof v === "number") return v;
@@ -103,7 +102,6 @@ window.grist.onRecords((records) => {
 
   COLS = records.length;
 
-  // max pour l'échelle
   maxValue = 0;
   records.forEach(row => {
     const conso   = toNumber(row[FIELD_CONSO]);
@@ -234,6 +232,18 @@ function drawLabels() {
   });
 }
 
+// Dessine une pièce avec sa position réelle en pixels (pour l'animation de glissement)
+function drawPieceAtPixel(p) {
+  ctx.fillStyle = p.color;
+  for (let i = 0; i < p.rows; i++) {
+    const r = p.y - i;
+    if (r >= 0 && r < ROWS) {
+      const y = r * SIZE_Y;
+      ctx.fillRect(p.px, y, COL_WIDTH, SIZE_Y);
+    }
+  }
+}
+
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -252,27 +262,27 @@ function draw() {
     }
   }
 
-  // pièces en chute
+  // pièces en chute/glissement
   activePieces.forEach(p => {
-    ctx.fillStyle = p.color;
-    for (let i = 0; i < p.rows; i++) {
-      const r = p.y - i;
-      if (r >= 0 && r < ROWS) {
-        const x = LEGEND_WIDTH + AXIS_WIDTH + p.col * COL_WIDTH;
-        const y = r * SIZE_Y;
-        ctx.fillRect(x, y, COL_WIDTH, SIZE_Y);
-      }
-    }
+    drawPieceAtPixel(p);
   });
 
   drawLabels();
 }
 
 // =====================
-// CHUTE
+// CHUTE & GLISSEMENT
 // =====================
 
+// Retourne la position X cible (en pixels) pour une colonne donnée
+function targetPx(col) {
+  return LEGEND_WIDTH + AXIS_WIDTH + col * COL_WIDTH;
+}
+
 function canMoveDown(piece) {
+  // Ne peut descendre que si alignée sur sa colonne cible
+  if (Math.abs(piece.px - targetPx(piece.col)) > 1) return false;
+
   const nextY = piece.y + 1;
   if (nextY - (piece.rows - 1) >= ROWS) return false;
 
@@ -295,18 +305,42 @@ function lockPiece(piece) {
 }
 
 function update() {
+  // Spawn une nouvelle pièce depuis une colonne aléatoire en haut
   if (pendingPieces.length && activePieces.length < 3) {
     const p = pendingPieces.shift();
-    p.y = -1;
+    p.y = 0;
+    // Position de départ aléatoire parmi les colonnes disponibles
+    const startCol = Math.floor(Math.random() * FIXED_COLS);
+    p.px = targetPx(startCol);
+    // Vitesse de glissement horizontal : 1 pixel par tick si besoin
+    p.slideSpeed = COL_WIDTH / 8; // glisse de ~7px par tick
     activePieces.push(p);
   }
 
   activePieces.forEach(p => {
-    if (canMoveDown(p)) {
-      p.y++;
+    const tx = targetPx(p.col);
+    const dx = tx - p.px;
+
+    if (Math.abs(dx) > 1) {
+      // Phase de glissement horizontal (et descente lente simultanée)
+      const step = Math.min(p.slideSpeed, Math.abs(dx));
+      p.px += Math.sign(dx) * step;
+
+      // Descente lente pendant le glissement (1 ligne toutes les 2 ticks)
+      if (!p._slideTick) p._slideTick = 0;
+      p._slideTick++;
+      if (p._slideTick % 2 === 0 && p.y < 3) {
+        p.y++;
+      }
     } else {
-      lockPiece(p);
-      p._locked = true;
+      // Aligné : snap sur la colonne exacte et descente normale
+      p.px = tx;
+      if (canMoveDown(p)) {
+        p.y++;
+      } else {
+        lockPiece(p);
+        p._locked = true;
+      }
     }
   });
 
