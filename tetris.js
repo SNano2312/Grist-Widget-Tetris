@@ -176,6 +176,11 @@ window.grist.onRecords((records) => {
 
   if (!gameStarted) {
     gameStarted = true;
+    music.play().then(() => {
+      btn.textContent = "⏸️ Pause musique";
+    }).catch(() => {
+      // Autoplay bloqué par le navigateur, l'utilisateur peut cliquer manuellement
+    });
     setInterval(update, 250);
   }
 });
