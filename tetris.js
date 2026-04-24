@@ -278,11 +278,6 @@ function drawLabels() {
 // CHUTE & GLISSEMENT (tout en pixels)
 // =====================
 
-// La grille stocke la hauteur déjà occupée (en pixels) par colonne
-// et les segments colorés figés (tableau de {top, height, color} par colonne)
-let colStacks = [];   // colStacks[c] = hauteur occupée depuis le bas, en pixels
-let colSegments = []; // colSegments[c] = [{top, height, color}, ...]
-
 function targetPx(col) {
   return LEGEND_WIDTH + AXIS_WIDTH + col * COL_WIDTH;
 }
