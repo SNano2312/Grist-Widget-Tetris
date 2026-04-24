@@ -152,6 +152,13 @@ window.grist.onRecords((records) => {
     const colors  = [COLOR_CONSO, COLOR_RAR, COLOR_ATTENTE, COLOR_DISPO];
     const heights = computeHeights(values);
 
+    const total = conso + rar + attente + dispo;
+    console.log(
+      `Col ${colIndex} (${row[FIELD_PROG]}) | total=${total.toFixed(0)} | maxValue=${maxValue.toFixed(0)}`,
+      `| heights=[${heights.join(',')}] | sumH=${heights.reduce((a,b)=>a+b,0)}`,
+      `| attendu=${((ROWS-1)*SIZE_Y*(total/maxValue)).toFixed(1)}px`
+    );
+
     values.forEach((val, idx) => {
       if (val > 0 && heights[idx] > 0) {
         pendingPieces.push({
