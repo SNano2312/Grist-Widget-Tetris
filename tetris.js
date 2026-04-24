@@ -51,10 +51,27 @@ let maxValue = 0;
 const music = document.getElementById("tetrisMusic");
 const btn = document.getElementById("playMusic");
 
-btn.onclick = () => {
+// Lance la musique dès le premier clic sur la page (contourne l'autoplay)
+let musicStarted = false;
+function startMusicOnce() {
+  if (!musicStarted) {
+    musicStarted = true;
+    music.play().then(() => {
+      btn.textContent = "⏸️ Pause musique";
+    }).catch(() => {});
+  }
+  document.removeEventListener("click", startMusicOnce);
+  canvas.removeEventListener("click", startMusicOnce);
+}
+document.addEventListener("click", startMusicOnce);
+canvas.addEventListener("click", startMusicOnce);
+
+btn.onclick = (e) => {
+  e.stopPropagation();
   if (music.paused) {
     music.play();
     btn.textContent = "⏸️ Pause musique";
+    musicStarted = true;
   } else {
     music.pause();
     btn.textContent = "🎵 Play musique";
